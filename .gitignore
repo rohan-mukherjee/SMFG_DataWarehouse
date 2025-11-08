@@ -17,3 +17,4 @@ data/curated_zone/
 .env/
 *.yaml~  # backup yaml
 .DS_Store
+Notes.txt
