@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+
+# Airflow local files
+logs/
+airflow.db
+*.pid
+
+# Data folders
+data/raw_zone/
+data/staging_zone/
+data/curated_zone/
+
+# Credentials / temp
+*.env
+.env/
+*.yaml~  # backup yaml
+.DS_Store

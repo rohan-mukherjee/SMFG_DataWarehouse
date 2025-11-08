@@ -1,0 +1,68 @@
+
+# # --- Environment-specific settings ---
+# ENVIRONMENT:
+#   DEV:
+#     SSH_HOST : 'prod-bastion-150.mmb.perdix.co'
+#     SSH_PORT : 25499
+#     SSH_USER : 'rohan.mukherjee'
+#     SSH_PASS : 'mukherjee@Dvara@2023'
+
+#     MYSQL_HOST : 'uat-smhfc.mmb.perdix.co'
+#     MYSQL_PORT : 3306
+#     MYSQL_USER : 'financialForms'
+#     MYSQL_PASS : 'AmZ215QWq9BPwK6rt64C'
+#     MYSQL_DB : 'utility_staging'
+
+#   PROD:
+#     SSH_HOST : 'prod-bastion-150.mmb.perdix.co'
+#     SSH_PORT : 25499
+#     SSH_USER : 'rohan.mukherjee'
+#     SSH_PASS : 'mukherjee@Dvara@2023'
+
+#     MYSQL_HOST : 'prod-smhfc.mmb.perdix.co'
+#     MYSQL_PORT : 3306
+#     MYSQL_USER : 'financialForms'
+#     MYSQL_PASS : 'AmZ215QWq9BPwK6rt64C'
+#     MYSQL_DB : 'utility_staging'
+
+# # --- Path configurations ---
+# PATHS:
+#   RAW_ZONE: 'D:\projects\SMFG_DataWarehouse\data\raw_zone'  # ----: use single quote for path '' else use forward slash /
+#   STAGING_ZONE: 'D:\projects\SMFG_DataWarehouse\data\staging_zone'
+#   CURATED_ZONE: 'D:\projects\SMFG_DataWarehouse\data\curated_zone'
+#   LOGS_PATH: 'D:\projects\SMFG_DataWarehouse\logs'
+
+
+
+# --- Environment-specific settings for AIRFLOW ---
+ENVIRONMENT:
+  DEV:
+    SSH_HOST : 'prod-bastion-150.mmb.perdix.co'
+    SSH_PORT : 25499
+    SSH_USER : 'rohan.mukherjee'
+    SSH_PASS : 'mukherjee@Dvara@2023'
+
+    MYSQL_HOST : 'uat-smhfc.mmb.perdix.co'
+    MYSQL_PORT : 3306
+    MYSQL_USER : 'financialForms'
+    MYSQL_PASS : 'AmZ215QWq9BPwK6rt64C'
+    MYSQL_DB : 'utility_staging'
+
+  PROD:
+    SSH_HOST : 'prod-bastion-150.mmb.perdix.co'
+    SSH_PORT : 25499
+    SSH_USER : 'rohan.mukherjee'
+    SSH_PASS : 'mukherjee@Dvara@2023'
+
+    MYSQL_HOST : 'prod-smhfc.mmb.perdix.co'
+    MYSQL_PORT : 3306
+    MYSQL_USER : 'financialForms'
+    MYSQL_PASS : 'AmZ215QWq9BPwK6rt64C'
+    MYSQL_DB : 'utility_staging'
+
+# --- Path configurations ---
+PATHS:
+  RAW_ZONE: '/mnt/d/projects/SMFG_DataWarehouse/data/raw_zone'
+  STAGING_ZONE: '/mnt/d/projects/SMFG_DataWarehouse/data/staging_zone'
+  CURATED_ZONE: '/mnt/d/projects/SMFG_DataWarehouse/data/curated_zone'
+  LOGS_PATH: '/mnt/d/projects/SMFG_DataWarehouse/logs'

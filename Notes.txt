@@ -1,0 +1,4 @@
+1. For airflow use config file airflow path details & for local use normal commented ones
+2. To sync dags from local to airflow(symbolic link) use - 
+	ln -s /mnt/d/projects/SMFG_DataWarehouse/dag ~/airflow/dags/SMFG_DataWarehouse	# Create link
+	(airflow_env) rohan@Rohan:~/airflow/dags$ ls -l ~/airflow/dags	# see the connections
