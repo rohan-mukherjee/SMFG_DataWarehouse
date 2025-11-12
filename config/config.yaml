@@ -66,3 +66,5 @@ PATHS:
   STAGING_ZONE: '/mnt/d/projects/SMFG_DataWarehouse/data/staging_zone'
   CURATED_ZONE: '/mnt/d/projects/SMFG_DataWarehouse/data/curated_zone'
   LOGS_PATH: '/mnt/d/projects/SMFG_DataWarehouse/logs'
+  STAGING_EXTRACT_METADATA_QUERY: '/mnt/d/projects/SMFG_DataWarehouse/source_code/sql/Staging_Extraction_Metadata_Query.sql'
+
