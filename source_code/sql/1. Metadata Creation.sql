@@ -8,9 +8,10 @@ CREATE TABLE IF NOT EXISTS utility_staging.DW_Process_Master (
   ProcessType    ENUM('EOD','HOURLY') NOT NULL,                  
   ProcessStartAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,    
   ProcessEndAt   DATETIME NULL,                                  
-  CurrentStage   ENUM('STAGING EXTRACT','TRANSFORMATION','DATA WAREHOUSE LOAD') NULL,
+  CurrentStage   ENUM('INIT_STAGE','STAGING_EXTRACT','DATA_TRANSFORMATION','DATA_WAREHOUSE_LOAD') NULL,
   Status         ENUM('RUNNING','SUCCESS','FAILED','PARTIAL') NOT NULL DEFAULT 'RUNNING',
-  Remarks        VARCHAR(500) NULL,                              
+  Remarks        VARCHAR(500) NULL,
+  ErrorMessage   TEXT NULL,
   CreatedAt      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   
   UpdatedAt      DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,      
   CreatedBy      VARCHAR(50) NULL                                
@@ -27,7 +28,7 @@ CREATE INDEX idx_dpm_status              ON utility_staging.DW_Process_Master (S
 -- =========================================================
 CREATE TABLE IF NOT EXISTS utility_staging.DW_Process_Stage_Detail (
   StageDetailID  INT PRIMARY KEY AUTO_INCREMENT,
-  StageName      ENUM('STAGING EXTRACT','TRANSFORMATION','DATA WAREHOUSE LOAD') NOT NULL,
+  StageName      ENUM('STAGING_EXTRACT','TRANSFORMATION','DATA_WAREHOUSE_LOAD') NOT NULL,
   ProcessID      INT NOT NULL,                                   -- FK → master
   TableID        INT NULL,                                       -- FK → table config (nullable for non-table stage ops)
   TableName      VARCHAR(100) NULL,
