@@ -21,13 +21,13 @@ if PROJECT_ROOT not in sys.path:
 # Import Utilities
 # ======================================================
 from source_code.python.airflow_utility.process_logger import (
+    load_config,
     get_mysql_engine,
     create_process_master,
     log_process_stage_detail,
     update_process_master,
 )
 from source_code.python.airflow_utility.staging_data_extraction import (
-    get_table_metadata,
     extract_single_table,
     load_metadata_query
 )
@@ -69,42 +69,9 @@ with DAG(
 ) as dag:
 
     # --------------------------------------------------
-    # 1️⃣ INIT STAGE: Config + Process Master
+    # 1. INIT STAGE: Config + Process Master
     # --------------------------------------------------
     with TaskGroup("init_stage", tooltip="Initialize Config and Process Master") as init_stage:
-
-        # @task()
-        def load_config():
-            try:
-                config_path = os.path.join(PROJECT_ROOT, "config/config.yaml")
-                with open(config_path, "r") as f:
-                    cfg_d = yaml.safe_load(f)
-                logger.info("✅ Configuration loaded successfully.")
-                return cfg_d
-            except Exception as e:
-                logger.error(f"❌ Error loading config: {e}", exc_info=True)
-                raise
-
-        # @task()
-        def start_process(cfg, env="DEV"):
-            try:
-                engine = get_mysql_engine(cfg, env)
-                process_id = create_process_master(
-                    engine,
-                    process_type="EOD",
-                    current_stage="INIT_STAGE",
-                    current_status="RUNNING",
-                    created_by="airflow"
-                )
-                engine.dispose()
-                logger.info(f"✅ Process master created: {process_id}")
-                return process_id
-            except Exception as e:
-                logger.error(f"❌ Failed to create process master: {e}", exc_info=True)
-                raise
-
-        # cfg = load_config()
-        # process_id = start_process(cfg)
 
         @task()
         def update_init_stage_status(env="DEV"):
@@ -120,7 +87,7 @@ with DAG(
                 # Load config
                 # -----------------------------------------
                 cfg = load_config()
-                logger.info("✅ Configuration loaded successfully.")
+                # logger.info("Configuration loaded successfully.")
                 engine = get_mysql_engine(cfg, env)
 
                 # -----------------------------------------
@@ -133,7 +100,7 @@ with DAG(
                     current_status="RUNNING",
                     created_by="airflow"
                 )
-                logger.info(f"✅ Process master created: {process_id}")
+                logger.info(f"-----: Process master created: {process_id}")
 
                 # -----------------------------------------
                 # Success update
@@ -147,12 +114,12 @@ with DAG(
                     process_end_at=None
                 )
                 engine.dispose()
-                logger.info(f"DW_PROCESS : INIT_STAGE Process {process_id} marked SUCCESS.")
+                logger.info(f"-----: DW_PROCESS : INIT_STAGE Process {process_id} marked SUCCESS.")
 
                 return {"cfg": cfg, "process_id": process_id, "status": "SUCCESS"}
 
             except Exception as e:
-                logger.error(f"❌ Error in INIT_STAGE: {e}", exc_info=True)
+                logger.error(f"-----: Error in INIT_STAGE: {e}", exc_info=True)
                 engine = None
 
                 try:
@@ -169,12 +136,12 @@ with DAG(
                             error_message=str(e),
                             process_end_at = datetime.now(timezone.utc)
                         )
-                        logger.warning(f"⚠️ Process {process_id} marked FAILED.")
+                        logger.warning(f"-----: Process {process_id} marked FAILED.")
                     else:
-                        logger.warning("⚠️ Could not update DB (no engine/process_id).")
+                        logger.warning("-----: Could not update DB (no engine/process_id).")
 
                 except Exception as inner_err:
-                    logger.error(f"⚠️ Failed to update process status after exception: {inner_err}", exc_info=True)
+                    logger.error(f"-----: Failed to update process status after exception: {inner_err}", exc_info=True)
                 finally:
                     if engine:
                         engine.dispose()
@@ -182,10 +149,102 @@ with DAG(
                 # Re-raise for Airflow to mark task failed
                 raise
 
-    init_result = update_init_stage_status()
+        init_result = update_init_stage_status()
 
 
 
+    # --------------------------------------------------
+    # 2. EXTRACTION STAGE - LOAD METADATA
+    # --------------------------------------------------
+    with TaskGroup("extraction_stage_load_config", tooltip="Parallel Extraction Stage") as extraction_stage_load_config:
+
+        @task()
+        def fetch_metadata(init_result, env="DEV"):
+            try:
+                cfg = init_result["cfg"]
+                process_id = init_result["process_id"]
+
+                
+                # -----------------------------------------
+                # Initial Stage Status Update
+                # -----------------------------------------
+                engine = get_mysql_engine(cfg, env)
+                update_process_master(
+                    engine,
+                    process_id,
+                    current_stage = "STAGING_EXTRACT",
+                    status="RUNNING",
+                    remarks="Metadata fetch in progress for Staging Extraction",
+                    error_message=None,
+                    process_end_at=None
+                )
+                engine.dispose()
+
+
+                # -----------------------------------------
+                # Loading Dynamic MetaData Query for Staging Extraction
+                # -----------------------------------------
+                metadata_table_query = load_metadata_query(cfg)
+
+                
+                # -----------------------------------------
+                # Update Load Metadata Status
+                # -----------------------------------------
+                engine = get_mysql_engine(cfg, env)
+                update_process_master(
+                    engine,
+                    process_id,
+                    current_stage = "STAGING_EXTRACT",
+                    status="SUCCESS",
+                    remarks="Metadata fetch complete for Staging Extraction",
+                    error_message=None,
+                    process_end_at=None
+                )
+                engine.dispose()
+
+                # logger.info(f"-----: Metadata fetched: {metadata_table_query}")
+                return metadata_table_query
+
+            except Exception as e:
+                logger.error(f"-----: Failed fetching metadata: {e}", exc_info=True)
+                engine = None
+
+                try:
+                    if "cfg" in locals():
+                        engine = get_mysql_engine(cfg, env)
+
+                    if "process_id" in locals() and engine:
+                        update_process_master(
+                            engine,
+                            process_id,
+                            current_stage = "STAGING_EXTRACT",
+                            status="FAILED",
+                            remarks='Metadata fetch fail for Staging Extraction',
+                            error_message=str(e),
+                            process_end_at = datetime.now(timezone.utc)
+                        )
+                        logger.warning(f"-----: Process {process_id} marked FAILED.")
+                    else:
+                        logger.warning("-----: Could not update DB (no engine/process_id).")
+
+                except Exception as inner_err:
+                    logger.error(f"-----: Failed to update process status after exception: {inner_err}", exc_info=True)
+                finally:
+                    if engine:
+                        engine.dispose()
+
+                # Re-raise for Airflow to mark task failed
+                raise
+
+        metadata_table_query = fetch_metadata(init_result)
+
+
+
+    # --------------------------------------------------
+    # 3. EXTRACTION STAGE - Main Staging Extraction
+    # --------------------------------------------------
+    with TaskGroup("extraction_stage_staging_data_extraction", tooltip="Parallel Extraction Stage") as extraction_stage_staging_data_extraction:
+        pass
 
     # --------------------------------------------------
     # 2️⃣ EXTRACTION STAGE
@@ -303,5 +362,5 @@ with DAG(
     # --------------------------------------------------
     # 5️⃣ DAG FLOW
     # --------------------------------------------------
-    init_stage 
+    init_stage >> extraction_stage_load_config >> extraction_stage_staging_data_extraction
     # init_stage >> extraction_stage >> transformation_stage >> load_stage

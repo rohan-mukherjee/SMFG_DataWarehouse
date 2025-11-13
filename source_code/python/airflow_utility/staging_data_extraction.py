@@ -7,6 +7,7 @@ import yaml
 import logging
 import traceback
 import pandas as pd
+import json
 from sqlalchemy import create_engine, text
 from datetime import datetime
 import pyarrow as pa
@@ -272,37 +273,57 @@ def extract_single_table(cfg_d, env, table_meta, chunk_size):
 
 
 
-def load_metadata_query(cfg: dict, key: str = "STAGING_EXTRACT_METADATA_QUERY") -> str:
+def load_metadata_query(cfg: dict, env: str = "DEV", key: str = "STAGING_EXTRACT_METADATA_QUERY") -> list[dict]:
     """
-    Reads the SQL metadata query file path from config and returns the query text.
-    Supports modular metadata-driven pipeline.
+    Loads metadata SQL query from file and returns results as JSON (list of dicts).
     """
+
     try:
+        # ---------: 1. Get SQL file path
         query_path = cfg["PATHS"].get(key)
         if not query_path:
             raise KeyError(f"Missing '{key}' in config PATHS section.")
-
         if not os.path.exists(query_path):
             raise FileNotFoundError(f"Metadata SQL file not found: {query_path}")
 
         with open(query_path, "r", encoding="utf-8") as f:
             sql_query = f.read().strip()
+        if not sql_query:
+            raise ValueError(f"Metadata SQL is empty. Check file: {query_path}")
 
-        logger.info(f"Loaded metadata query from: {query_path}")
-        return sql_query
+        # ---------: 2. Build MySQL engine from config
+        env_cfg = cfg["ENVIRONMENT"].get(env)
+        if not env_cfg:
+            raise KeyError(f"Missing environment section '{env}' in config.")
+
+        mysql_user = env_cfg["MYSQL_USER"]
+        mysql_pass = env_cfg["MYSQL_PASS"]
+        mysql_host = env_cfg["MYSQL_HOST"]
+        mysql_port = env_cfg["MYSQL_PORT"]
+        mysql_db   = env_cfg["MYSQL_DB"]
+
+        conn_str = f"mysql+pymysql://{mysql_user}:{mysql_pass}@{mysql_host}:{mysql_port}/{mysql_db}"
+        engine = create_engine(conn_str)
+
+        # logger.info(f"MySQL engine created for {env}: {mysql_host}/{mysql_db}")
+
+        # ---------: 3. Execute query
+        raw_conn = None
+        try:
+            raw_conn = engine.raw_connection()
+            df = pd.read_sql(sql_query, con=raw_conn)
+        finally:
+            if raw_conn is not None:
+                raw_conn.close()
+
+        # ---------: 4. Convert to JSON
+        json_data = json.loads(df.to_json(orient="records"))
+        logger.info(f"Metadata query executed successfully | Tables for Extraction : {len(json_data)}")
+
+        return json_data
 
     except Exception as e:
-        logger.error(f"Error loading metadata query: {e}", exc_info=True)
+        logger.error(f"Error executing metadata query: {e}", exc_info=True)
         raise
 
-def get_table_metadata(cfg_d, metadata_query, env):
-    """
-    Fetch metadata list of tables to process.
-    Returns list of dicts with table info for mapping.
-    """
-    engine = get_mysql_engine(cfg_d, env, database="utility_staging")
-    with engine.connect() as conn:
-        df_meta = pd.read_sql(metadata_query, con=conn)
-    engine.dispose()
-    logger.info(f"Fetched {len(df_meta)} metadata rows.")
-    return df_meta.to_dict(orient="records")
+
