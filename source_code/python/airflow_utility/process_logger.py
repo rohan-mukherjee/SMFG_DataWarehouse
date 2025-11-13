@@ -7,11 +7,33 @@ from sqlalchemy import create_engine, text
 from datetime import datetime
 from urllib.parse import quote_plus
 from typing import Optional
-import traceback
-import logging
+import os, sys, yaml, logging, traceback
  
+# ======================================================
+# Add Project Root
+# ======================================================
+PROJECT_ROOT = "/mnt/d/projects/SMFG_DataWarehouse"
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+
 
 logger = logging.getLogger("process_logger")
+
+
+# ======================================================
+# Load Config
+# ======================================================
+def load_config():
+            try:
+                config_path = os.path.join(PROJECT_ROOT, "config/config.yaml")
+                with open(config_path, "r") as f:
+                    cfg_d = yaml.safe_load(f)
+                # logger.info("YAML Configuration loaded successfully.")
+                return cfg_d
+            except Exception as e:
+                logger.error(f"-----: Error loading YAML config: {e}", exc_info=True)
+                raise
+
 
 # ======================================================
 # DB Connection
@@ -38,11 +60,10 @@ def get_mysql_engine(cfg, ENV: Optional[str] = None, database: Optional[str] = N
     
     env = cfg["ENVIRONMENT"][env_key]
     
-    # Safely encode credentials
     user = quote_plus(env['MYSQL_USER'])
     password = quote_plus(env['MYSQL_PASS'])
     host = env['MYSQL_HOST']
-    port = env.get('MYSQL_PORT', 3306)  # default port
+    port = env.get('MYSQL_PORT', 3306)
 
     base_conn = f"mysql+pymysql://{user}:{password}@{host}:{port}"
     conn_str = f"{base_conn}/{database}" if database else base_conn
@@ -76,7 +97,6 @@ def create_process_master(engine, process_type="EOD", current_stage="STAGING_EXT
             "created_by": created_by
         })
         process_id = conn.execute(text("SELECT LAST_INSERT_ID()")).scalar()
-    # print(f"🟢 Process Master created → ProcessID = {process_id}")
     return process_id
 
 
@@ -139,7 +159,7 @@ def update_process_stage_detail(engine, stage_detail_id, status="SUCCESS", row_c
 # ======================================================
 # Update process master status
 # ======================================================
-def update_process_master(engine, process_id, status=None, remarks=None, error_message=None, process_end_at=None):
+def update_process_master(engine, process_id, status=None, current_stage = None, remarks=None, error_message=None, process_end_at=None):
     """
     Updates overall process status after stages processed.
     """
@@ -148,6 +168,7 @@ def update_process_master(engine, process_id, status=None, remarks=None, error_m
             UPDATE utility_staging.DW_Process_Master
             SET 
                 Status = :status,
+                CurrentStage = :current_stage,
                 Remarks = :remarks,
                 ProcessEndAt = :process_end_at,
                 ErrorMessage = :error_message
@@ -157,21 +178,21 @@ def update_process_master(engine, process_id, status=None, remarks=None, error_m
         with engine.begin() as conn:
             conn.execute(sql, {
                 "status": status,
+                "current_stage":current_stage,
                 "remarks": remarks,
                 "process_id": process_id,
                 "error_message": error_message,
                 "process_end_at": process_end_at
             })
 
-        logger.info(f"✅ Process Master updated → ProcessID={process_id}, Status={status}")
-        print(f"✅ Process Master updated → ProcessID={process_id}, Status={status}")
+        # logger.info(f"-----: Process Master updated → ProcessID={process_id}, Status={status}")
+        
 
     except Exception as e:
         tb = traceback.format_exc()
         logger.error(
-            f"❌ Error updating process master for ProcessID={process_id}: {e}\nTraceback:\n{tb}"
+            f"-----: Error updating process master for ProcessID={process_id}: {e}\nTraceback:\n{tb}"
         )
-        print(f"❌ Error updating process master for ProcessID={process_id}: {e}")
         raise
 
 
